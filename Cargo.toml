@@ -1,0 +1,15 @@
+[package]
+name = "crypto_ws"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+url = "2.4.0"
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tungstenite = { version = "0.19.0", features = ["native-tls"] }
+tokio = { version = "1.28.2", features = ["macros", "rt-multi-thread"] }
+tokio-tungstenite = { version = "0.19.0", features = ["native-tls"] }
+futures-util = { version = "0.3", default-features = false }
