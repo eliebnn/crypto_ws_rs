@@ -21,14 +21,14 @@ pub trait Json: erased_serde::Serialize {}
 pub struct EmptyJson {}
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TradeJson {
+pub struct TradeSingletonJson {
     #[serde(rename(serialize="trade_id", deserialize="i"))]
     trade_id: String,
     #[serde(rename(serialize="trade_timestamp_utc", deserialize="T"))]
     trade_timestamp_utc: u64,
-    #[serde(rename(serialize="trade_price", deserialize="P"), deserialize_with="as_f64")]
+    #[serde(rename(serialize="trade_price", deserialize="p"), deserialize_with="as_f64")]
     trade_price: f64,
-    #[serde(rename(serialize="trade_size", deserialize="V"), deserialize_with="as_f64")]
+    #[serde(rename(serialize="trade_size", deserialize="v"), deserialize_with="as_f64")]
     trade_size: f64,
     #[serde(rename(serialize="direction", deserialize="S"))]
     direction: String,
@@ -38,6 +38,10 @@ pub struct TradeJson {
     is_block_trade: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TradeJson {
+    pub trades: Vec<TradeSingletonJson>
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TickerJson {
@@ -64,3 +68,5 @@ pub struct TickerJson {
 impl Json for EmptyJson {}
 impl Json for TickerJson {}
 impl Json for TradeJson {}
+impl Json for TradeSingletonJson {}
+

@@ -4,13 +4,17 @@ use url::Url;
 use futures_util::SinkExt;
 use serde_json::{Value};
 
-use super::messages::{TickerJson, TradeJson, EmptyJson, Json};
+use super::messages::{TickerJson, TradeJson, TradeSingletonJson, EmptyJson, Json};
 use super::payload::Payload;
 
 pub struct BybitClient {
     payload: Payload,
     url: String,
     ping_delay: u8,
+}
+
+fn print_type_of<T>(_: &T) {
+    println!("{}", std::any::type_name::<T>())
 }
 
 impl BybitClient {
@@ -54,30 +58,46 @@ impl BybitClient {
                 continue 'main_loop;
             }
 
-            let msg_txt = serde_json::from_str::<serde_json::Value>(&raw_msg.to_text().unwrap()).unwrap();
-            let data_text = serde_json::to_string::<serde_json::Value>(&msg_txt.get(&"data").unwrap()).unwrap();
+            let msg_dct = serde_json::from_str::<serde_json::Value>(&raw_msg.to_text().unwrap()).unwrap();
+            let data_text = serde_json::to_string::<serde_json::Value>(&msg_dct.get(&"data").unwrap()).unwrap();
 
             let data: Box<dyn Json> = 
             
-            if channel.contains("tickers") {
+                if channel.contains("tickers") {
 
-                match serde_json::from_str::<TickerJson>(&data_text) {
-                    Result::Ok(val) => Box::new(val),
-                    Result::Err(err) => {println!("Error: {}", err); continue 'main_loop;}
+                    match serde_json::from_str::<TickerJson>(&data_text) {
+                        Result::Ok(val) => Box::new(val),
+                        Result::Err(err) => {println!("Error: {}", err); continue 'main_loop;}
+                    }
                 }
-            }
 
-            // -- To add Trades
+                else if channel.contains("publicTrade") {
 
-            else {
-                Box::new(EmptyJson{})
-            };
+                    let mut singleton_vec: Vec<TradeSingletonJson> = vec![];
+
+                    'trade_loop:
+                    for parsed_trade in (&msg_dct.get(&"data").unwrap().as_array().unwrap()).iter(){
+
+                        let string_trade = serde_json::to_string::<serde_json::Value>(parsed_trade).unwrap();
+
+                        match serde_json::from_str::<TradeSingletonJson>(&string_trade) {
+                            Result::Ok(value) => {singleton_vec.push(value)},
+                            Result::Err(err) => {println!("Error: {}", err); continue 'trade_loop;}
+                        }
+
+                    };
+
+                    Box::new(TradeJson{trades: singleton_vec})
+                }
+
+                else {
+                    Box::new(EmptyJson{})
+                };
 
             let data_str = serde_json::to_string_pretty(&data).unwrap();
             println!("{}: {}", &channel, data_str);
 
         }
-
     }
 
     fn parse_channel(msg: &tungstenite::protocol::Message) -> Option<String> {
