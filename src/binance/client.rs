@@ -4,12 +4,8 @@ use url::Url;
 use futures_util::SinkExt;
 use serde_json::{Value};
 
-
 use super::messages::{TickerJson, TradeJson, EmptyJson, Json};
 use super::payload::Payload;
-
-
-
 
 pub struct BinanceClient {
     payload: Payload,
@@ -32,62 +28,59 @@ impl BinanceClient {
         let (ws_stream, response) =
         connect_async(Url::parse(&self.url).unwrap()).await.expect("Can't connect");
 
-    println!("Connected to the server");
-    println!("Response HTTP code: {}", response.status());
-    println!("Response contains the following headers:");
+        println!("Connected to the server");
+        println!("Response HTTP code: {}", response.status());
+        println!("Response contains the following headers:");
 
-    for (ref header, val /* value */) in response.headers() {
-        println!("* {}: {:?}", header, val);
-    }
-
-    let (mut write, mut read) = ws_stream.split();
-    let payload = self.payload.to_string();
-    let mut channel: String = String::new();
-
-    write.send(Message::Text(payload)).await.unwrap();
-    
-    'main_loop: 
-    while let Some(Ok(raw_msg)) = read.next().await {
-
-        channel.clear();
-
-        if let Some(tmp) = BinanceClient::parse_channel(&raw_msg) {
-            channel = tmp;
-        } else {
-            continue 'main_loop;
+        for (ref header, val /* value */) in response.headers() {
+            println!("* {}: {:?}", header, val);
         }
 
-        let msg_text = &raw_msg.to_text().unwrap();
-        let data: Box<dyn Json> = 
+        let (mut write, mut read) = ws_stream.split();
+        let payload = self.payload.to_string();
+        let mut channel: String = String::new();
+
+        write.send(Message::Text(payload)).await.unwrap();
         
-        if channel.contains("24hrTicker") {
-            
-            match serde_json::from_str::<TickerJson>(msg_text) {
-                Result::Ok(val) => Box::new(val),
-                Result::Err(err) => {println!("Error: {}", err); continue 'main_loop;}
+        'main_loop: 
+        while let Some(Ok(raw_msg)) = read.next().await {
+
+            channel.clear();
+
+            if let Some(tmp) = BinanceClient::parse_channel(&raw_msg) {
+                channel = tmp;
+            } else {
+                continue 'main_loop;
             }
-        }
 
-        else if channel.contains("trade") {
+            let msg_text = &raw_msg.to_text().unwrap();
+            let data: Box<dyn Json> = 
             
-            match serde_json::from_str::<TradeJson>(msg_text) {
-                Result::Ok(val) => {Box::new(val)},
-                Result::Err(err) => {println!("Error: {}", err); continue 'main_loop;}
+            if channel.contains("24hrTicker") {
+                
+                match serde_json::from_str::<TickerJson>(msg_text) {
+                    Result::Ok(val) => Box::new(val),
+                    Result::Err(err) => {println!("Error: {}", err); continue 'main_loop;}
+                }
             }
+
+            else if channel.contains("trade") {
+                
+                match serde_json::from_str::<TradeJson>(msg_text) {
+                    Result::Ok(val) => {Box::new(val)},
+                    Result::Err(err) => {println!("Error: {}", err); continue 'main_loop;}
+                }
+            }
+
+            else {
+                Box::new(EmptyJson{})
+            };
+
+            let data_str = serde_json::to_string_pretty(&data).unwrap();
+            println!("{}: {}", &channel, data_str);
+
         }
-
-        else {
-            Box::new(EmptyJson{})
-        };
-
-        let data_str = serde_json::to_string_pretty(&data).unwrap();
-        println!("{}: {}", &channel, data_str);
-
     }
-
-    }
-
-
 
     fn parse_channel(msg: &tungstenite::protocol::Message) -> Option<String> {
 
